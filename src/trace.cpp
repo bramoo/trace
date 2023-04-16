@@ -33,6 +33,35 @@ colour ray_colour(const ray& r, const hittable& world, int depth) {
     return (1.0-t)*colour(1.0, 1.0, 1.0) + t*colour(0.5, 0.7, 1.0);
 }
 
+void init_world(hittable_list& world, int scene_id) {
+    switch(scene_id){
+	case 1:
+	    {
+		auto material_ground = std::make_shared<lambertian>(colour(0.8, 0.8, 0.0));
+		auto material_center = std::make_shared<lambertian>(colour(0.1, 0.2, 0.5));
+		auto material_left   = std::make_shared<dielectric>(1.5);
+		auto material_right  = std::make_shared<metal>(colour(0.8, 0.6, 0.2), 0.0);
+
+		world.add(make_shared<sphere>(point3( 0.0, -100.5, -1.0), 100.0, material_ground));
+		world.add(make_shared<sphere>(point3( 0.0,    0.0, -1.0),   0.5, material_center));
+		world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),   0.5, material_left));
+		world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),  -0.4, material_left));
+		world.add(make_shared<sphere>(point3( 1.0,    0.0, -1.0),   0.5, material_right));
+	    }
+	    break;
+	
+	case 2:
+	    {
+		auto R = cos(pi/4);
+		auto material_left = make_shared<lambertian>(colour(0, 0, 1));
+		auto material_right = make_shared<lambertian>(colour(1, 0, 0));
+		world.add(make_shared<sphere>(point3(-R, 0, -1), R, material_left));
+		world.add(make_shared<sphere>(point3( R, 0, -1), R, material_right));
+	    }
+	    break;
+    }
+}
+
 int main() {
     // image
     const auto aspect_ratio = 16.0 / 9.0;
@@ -48,20 +77,10 @@ int main() {
 
     // world
     hittable_list world;
-
-    auto material_ground = std::make_shared<lambertian>(colour(0.8, 0.8, 0.0));
-    auto material_center = std::make_shared<lambertian>(colour(0.1, 0.2, 0.5));
-    auto material_left   = std::make_shared<dielectric>(1.5);
-    auto material_right  = std::make_shared<metal>(colour(0.8, 0.6, 0.2), 0.0);
-
-    world.add(make_shared<sphere>(point3( 0.0, -100.5, -1.0), 100.0, material_ground));
-    world.add(make_shared<sphere>(point3( 0.0,    0.0, -1.0),   0.5, material_center));
-    world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),   0.5, material_left));
-    world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),  -0.4, material_left));
-    world.add(make_shared<sphere>(point3( 1.0,    0.0, -1.0),   0.5, material_right));
+    init_world(world, 2);
 
     // camera
-    camera cam;
+    camera cam(90, aspect_ratio);
 
     // render
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
@@ -84,7 +103,7 @@ int main() {
 	}
 	end = std::chrono::steady_clock::now();
 	diff = end - start;
-	rps = rays_per_line / 1000 / diff.count();
+	rps = rays_per_line / 1000.0 / diff.count();
 	std::cerr << " [" << rps << " krps]" << ' ' << std::flush;
     }
 
