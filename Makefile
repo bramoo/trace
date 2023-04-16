@@ -20,4 +20,4 @@ clean:
 	@echo "Cleanup complete!"
 
 -include obj/trace.d
-$(shell mkdir bin obj)
+$(shell mkdir -p bin obj)

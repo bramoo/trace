@@ -7,6 +7,7 @@
 #include "sphere.h"
 #include "vec3.h"
 
+#include <chrono>
 #include <iostream>
 #include <memory>
 
@@ -39,6 +40,11 @@ int main() {
     const int image_height = static_cast<int>(image_width / aspect_ratio);
     const int samples_per_pixel = 50;
     const int max_depth = 10;
+    
+    const int rays_per_line = image_width * samples_per_pixel;
+
+    std::cerr << "Rendering " << image_width << " by " << image_height << " pixels with " << samples_per_pixel << " samples per pixel\n";
+    std::cerr << rays_per_line * image_height << " rays to cast\n";
 
     // world
     hittable_list world;
@@ -51,6 +57,7 @@ int main() {
     world.add(make_shared<sphere>(point3( 0.0, -100.5, -1.0), 100.0, material_ground));
     world.add(make_shared<sphere>(point3( 0.0,    0.0, -1.0),   0.5, material_center));
     world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),   0.5, material_left));
+    world.add(make_shared<sphere>(point3(-1.0,    0.0, -1.0),  -0.4, material_left));
     world.add(make_shared<sphere>(point3( 1.0,    0.0, -1.0),   0.5, material_right));
 
     // camera
@@ -59,8 +66,12 @@ int main() {
     // render
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
+    std::chrono::time_point<std::chrono::steady_clock> start, end;
+    std::chrono::duration<double> diff;
+    int rps;
     for (int j = image_height-1; j >= 0; --j) {
 	std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
+	start = std::chrono::steady_clock::now();
 	for (int i = 0; i < image_width; ++i) {
 	    colour pixel_colour(0, 0, 0);
 	    for (int s = 0; s < samples_per_pixel; ++s) {
@@ -71,6 +82,10 @@ int main() {
 	    }
 	    write_colour(std::cout, pixel_colour, samples_per_pixel);
 	}
+	end = std::chrono::steady_clock::now();
+	diff = end - start;
+	rps = rays_per_line / 1000 / diff.count();
+	std::cerr << " [" << rps << " krps]" << ' ' << std::flush;
     }
 
     std::cerr << "\nDone.\n";
