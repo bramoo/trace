@@ -10,6 +10,12 @@
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <string>
+
+#define DEFAULT_WIDTH 800
+#define DEFAULT_SAMPLES 100
+#define DEFAULT_DEPTH 50
+#define DEFAULT_SCENE 1
 
 colour ray_colour(const ray& r, const hittable& world, int depth) {
     hit_record rec;
@@ -62,13 +68,31 @@ void init_world(hittable_list& world, int scene_id) {
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    // args
+    int image_width = DEFAULT_WIDTH;
+    int samples_per_pixel = DEFAULT_SAMPLES;
+    int max_depth = DEFAULT_DEPTH;
+    int scene_id = DEFAULT_SCENE;
+
+    switch (argc) {
+	case 5:
+	    scene_id = std::stoi(argv[4]);
+	    if (scene_id == 0) scene_id = DEFAULT_SCENE;
+	case 4:
+	    max_depth = std::stoi(argv[3]);
+	    if (max_depth == 0) max_depth = DEFAULT_DEPTH;
+	case 3:
+	    samples_per_pixel = std::stoi(argv[2]);
+	    if (samples_per_pixel == 0) samples_per_pixel = DEFAULT_SAMPLES;
+	case 2:
+	    image_width = std::stoi(argv[1]);
+	    if (image_width == 0) image_width = DEFAULT_WIDTH;
+    }
+
     // image
     const auto aspect_ratio = 16.0 / 9.0;
-    const int image_width = 600;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 50;
-    const int max_depth = 10;
     
     const int rays_per_line = image_width * samples_per_pixel;
 
@@ -77,10 +101,10 @@ int main() {
 
     // world
     hittable_list world;
-    init_world(world, 2);
+    init_world(world, scene_id);
 
     // camera
-    camera cam(90, aspect_ratio);
+    camera cam(point3(-2, 2, 1), point3(0, 0, -1), vec3(0, 1, 0), 20, aspect_ratio);
 
     // render
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
