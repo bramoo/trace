@@ -11,10 +11,12 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 #define DEFAULT_WIDTH 800
 #define DEFAULT_SAMPLES 100
 #define DEFAULT_DEPTH 50
+#define TILESIZE 32
 
 colour ray_colour(const ray& r, const hittable& world, int depth) {
     hit_record rec;
@@ -113,6 +115,60 @@ hittable_list random_balls() {
     return world;
 }
 
+void renderImage(std::vector<colour>& image, const camera& cam, const hittable_list& world, int image_width, int image_height, int samples_per_pixel, int max_depth) {
+    // target tile size
+    const int tiles_x = image_width / TILESIZE;
+    const int tiles_y = image_height / TILESIZE;
+    const int tile_count = tiles_x * tiles_y;
+
+    // stretched tile size
+    const double tsize_x = double(image_width) / tiles_x;
+    const double tsize_y = double(image_height) / tiles_y;
+
+    std::cerr << "Actual tile size: " << tsize_x << " by " << tsize_y << '\n';
+
+    std::chrono::time_point<std::chrono::steady_clock> tile_start, tile_end;
+    std::chrono::duration<double> diff;
+    int ray_count;
+    int rps;
+    // for each tile
+    for (int tile = 0; tile < tile_count; tile++) {
+	// tile offsets
+	const int tx = tile % tiles_x;
+	const int ty = tile / tiles_x;
+	const int start_x = static_cast<int>(tsize_x * tx);
+	const int start_y = static_cast<int>(tsize_y * ty);
+	const int end_x = static_cast<int>(tsize_x * (tx + 1));
+	const int end_y = static_cast<int>(tsize_y * (ty + 1));
+
+	// timing tile start
+	std::cerr << "\rTiles remaining: " << tile_count - tile << std::flush;
+	ray_count = 0;
+	tile_start = std::chrono::steady_clock::now();
+
+	// for each pixel in tile
+	for (int y = start_y; y < end_y; y++) {
+	for (int x = start_x; x < end_x; x++) {
+	    colour pixel_colour(0, 0, 0);
+	    for (int s = 0; s < samples_per_pixel; s++) {
+		auto u = double(x + random_double()) / (image_width - 1);
+		auto v = 1.0 - double(y + random_double()) / (image_height - 1);
+		ray r = cam.get_ray(u, v);
+		pixel_colour += ray_colour(r, world, max_depth);
+		ray_count++;
+	    }
+	    image[image_width*y+x] = pixel_colour / samples_per_pixel;
+	}
+	}
+
+	// timing tile end
+	tile_end = std::chrono::steady_clock::now();
+	diff = tile_end - tile_start;
+	rps = ray_count / 1000.0 / diff.count();
+	std::cerr << " [" << rps << " krps]" << ' ' << std::flush;
+    }
+}
+
 int main(int argc, char *argv[]) {
     // args
     int image_width = DEFAULT_WIDTH;
@@ -150,39 +206,28 @@ int main(int argc, char *argv[]) {
     point3 lookfrom(3, 1, 5);
     point3 lookat(0, 0, -1);
     vec3 vup(0, 1, 0);
-    auto dist_to_focus = 10.0;
+    auto dist_to_focus = 7.0;
     auto aperture = 0.1;
 
     camera cam(lookfrom, lookat, vup, 20, aspect_ratio, aperture, dist_to_focus);
 
     // render
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+    const int pixel_count = image_height * image_width;
+    std::vector<colour> image(pixel_count);
 
-    std::chrono::time_point<std::chrono::steady_clock> begin, start_loop, end;
-    std::chrono::duration<double> diff;
-    int rps;
-    begin = std::chrono::steady_clock::now();
-    for (int j = image_height-1; j >= 0; --j) {
-	std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
-	start_loop = std::chrono::steady_clock::now();
-	for (int i = 0; i < image_width; ++i) {
-	    colour pixel_colour(0, 0, 0);
-	    for (int s = 0; s < samples_per_pixel; ++s) {
-		auto u = double(i + random_double()) / (image_width-1);
-		auto v = double(j + random_double()) / (image_height-1);
-		ray r = cam.get_ray(u, v);
-		pixel_colour += ray_colour(r, world, max_depth);
-	    }
-	    write_colour(std::cout, pixel_colour, samples_per_pixel);
-	}
-	end = std::chrono::steady_clock::now();
-	diff = end - start_loop;
-	rps = rays_per_line / 1000.0 / diff.count();
-	std::cerr << " [" << rps << " krps]" << ' ' << std::flush;
-    }
+    auto start = std::chrono::steady_clock::now();
+    renderImage(image, cam, world, image_width, image_height, samples_per_pixel, max_depth);
+    auto end = std::chrono::steady_clock::now();
 
     std::cerr << "\nDone.\n";
-    end = std::chrono::steady_clock::now();
-    diff = end - begin;
-    std::cerr << diff.count() << " seconds [" << total_rays / 1000.0 / diff.count() << " krps]\n";
+    std::chrono::duration<double> diff = end - start;
+    int krps = total_rays / 1000.0 / diff.count();
+    std::cerr << diff.count() << " seconds [" << krps << " krps]\n";
+
+    for (colour c : image) {
+	std::cout << static_cast<int>(256 * clamp(c.x(), 0.0, 0.999)) << ' '
+		  << static_cast<int>(256 * clamp(c.y(), 0.0, 0.999)) << ' '
+		  << static_cast<int>(256 * clamp(c.z(), 0.0, 0.999)) << '\n';
+    }
 }
