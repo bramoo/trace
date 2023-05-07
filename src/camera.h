@@ -5,6 +5,15 @@
 
 class camera {
     public:
+	camera() : camera(
+	    point3(3, 3, 2),
+	    point3(0, 0, -1),
+	    vec3(0, 1, 0),
+	    50,
+	    16.0/9.0,
+	    0.1,
+	    5.2) {}
+
 	camera(
 	    point3 lookfrom,
 	    point3 lookat,
